@@ -152,9 +152,10 @@ const sim = {
   applyInit(st){
     for (let i=0;i<3;i++){
       const chk = $(`#initHit${i+1}`).checked;
-      const txt = $(`#initText${i+1}`).value.trim();
+      const sel = $(`#initSel${i+1}`);
+      const val = sel ? String(sel.value || '').trim() : '';
       this.hits[i] = chk;
-      this.text[i] = txt || (chk ? targetText(st) : pickNonTarget(st));
+      this.text[i] = val || (chk ? targetText(st) : pickNonTarget(st));
       this.tier[i] = '';
     }
   }
@@ -220,9 +221,33 @@ function autoUntilDone(){
   render();
 }
 
+function buildInitSelects(){
+  const st = getState();
+  const opts = [];
+  opts.push({ v: '', t: '（自動/不指定）' });
+  opts.push({ v: targetText(st), t: `【目標】${targetText(st)}` });
+  // Add a handful of common non-target lines for quick selection.
+  const pool = NON_TARGET_POOL[st.presetKey] || [];
+  for (const s of pool) opts.push({ v: s, t: s });
+
+  for (let i=1;i<=3;i++){
+    const sel = $(`#initSel${i}`);
+    if (!sel) continue;
+    const current = sel.value;
+    sel.innerHTML = '';
+    for (const o of opts){
+      const el = document.createElement('option');
+      el.value = o.v;
+      el.textContent = o.t;
+      sel.appendChild(el);
+    }
+    if (current) sel.value = current;
+  }
+}
+
 function bind(){
-  $('#preset').addEventListener('change', ()=>{ sim.reset(); render(); });
-  $('#mainStat').addEventListener('change', render);
+  $('#preset').addEventListener('change', ()=>{ sim.reset(); buildInitSelects(); render(); });
+  $('#mainStat').addEventListener('change', ()=>{ buildInitSelects(); render(); });
   ['price','trials','pU','pL'].forEach(id=>$('#'+id).addEventListener('input', render));
 
   $('#btnApplyInit').addEventListener('click', ()=>{ sim.applyInit(getState()); render(); });
@@ -235,4 +260,5 @@ function bind(){
 }
 
 bind();
+buildInitSelects();
 render();
