@@ -1,8 +1,8 @@
 // Additional Combination Cube (TMS) - mode2
 // - You pick a single line to reroll; other lines are preserved.
-// - Goal: get 3 lines that are the desired attribute (e.g., 物攻%、主屬%、爆傷、減CD).
+// - Goal: get 3 lines that are the desired attribute.
 
-const LINE_TIER = { pL: 0.005, pU: 0.995 }; // legendary line vs unique line in combine-additional cube
+const LINE_TIER = { pL: 0.005, pU: 0.995 }; // internal line tier distribution
 
 const PRESETS = {
   weapon_phys_pct: {
@@ -29,6 +29,37 @@ const PRESETS = {
     pL: 0.0104,
     hint: '目標：減少所有技能冷卻時間'
   }
+};
+
+// Non-target line text pool (placeholder). This is for UI realism only.
+// If you want 100% accurate pools/ranges, we can replace this with an official table.
+const NON_TARGET_POOL = {
+  weapon_phys_pct: [
+    'STR +12', 'DEX +12', 'INT +12', 'LUK +12',
+    '最大HP +300', '最大MP +300',
+    '攻擊力 +12', '魔力 +12',
+    '跳躍力 +10', '移動速度 +10',
+    '防禦力 +200'
+  ],
+  armor_mainstat_pct: [
+    'STR +12', 'DEX +12', 'INT +12', 'LUK +12',
+    '最大HP +300', '最大MP +300',
+    '防禦力 +200',
+    '跳躍力 +10', '移動速度 +10',
+    '全屬性 +5'
+  ],
+  glove_crit_dmg: [
+    'STR +12', 'DEX +12', 'INT +12', 'LUK +12',
+    '最大HP +300', '最大MP +300',
+    '攻擊力 +12', '魔力 +12',
+    '掉寶率 +10%', '楓幣獲得量 +10%'
+  ],
+  hat_cooldown: [
+    'STR +12', 'DEX +12', 'INT +12', 'LUK +12',
+    '最大HP +300', '最大MP +300',
+    '掉寶率 +10%', '楓幣獲得量 +10%',
+    '全屬性 +5'
+  ]
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -80,46 +111,76 @@ function getState(){
   return { presetKey, preset, price, trials, mainStat, pU, pL, p };
 }
 
-function lineText(isHit, state){
-  const presetKey = state.presetKey;
-  if (!isHit) return '（非目標）';
-  if (presetKey === 'armor_mainstat_pct') return `${state.mainStat}%`;
-  if (presetKey === 'weapon_phys_pct') return '物理攻擊力%';
-  if (presetKey === 'glove_crit_dmg') return '爆擊傷害%';
-  if (presetKey === 'hat_cooldown') return '減少所有技能冷卻時間';
+function targetText(st){
+  if (st.presetKey === 'armor_mainstat_pct') return `${st.mainStat}%`;
+  if (st.presetKey === 'weapon_phys_pct') return '物理攻擊力%';
+  if (st.presetKey === 'glove_crit_dmg') return '爆擊傷害%';
+  if (st.presetKey === 'hat_cooldown') return '減少所有技能冷卻時間';
   return '（命中）';
 }
 
+function pickNonTarget(st){
+  const pool = NON_TARGET_POOL[st.presetKey] || ['（非目標）'];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function sampleTier(){
+  return (Math.random() < LINE_TIER.pL) ? '傳說' : '罕見';
+}
+
 const sim = {
-  lines: [false,false,false],
+  hits: [false,false,false],
+  text: ['（尚未套用）','（尚未套用）','（尚未套用）'],
+  tier: ['','', ''],
   cubes: 0,
-  reset(){ this.lines=[false,false,false]; this.cubes=0; },
-  hits(){ return this.lines.filter(Boolean).length; },
-  rollLine(i, p){
+  reset(){
+    this.hits=[false,false,false];
+    this.text=['（尚未套用）','（尚未套用）','（尚未套用）'];
+    this.tier=['','',''];
+    this.cubes=0;
+  },
+  hitCount(){ return this.hits.filter(Boolean).length; },
+  rollLine(i, st){
     this.cubes++;
-    this.lines[i] = (Math.random() < p);
+    const tier = sampleTier();
+    this.tier[i] = `本次該排內部等級：${tier}`;
+    // Determine hit by mixed probability p
+    const isHit = (Math.random() < st.p);
+    this.hits[i] = isHit;
+    this.text[i] = isHit ? targetText(st) : pickNonTarget(st);
+  },
+  applyInit(st){
+    for (let i=0;i<3;i++){
+      const chk = $(`#initHit${i+1}`).checked;
+      const txt = $(`#initText${i+1}`).value.trim();
+      this.hits[i] = chk;
+      this.text[i] = txt || (chk ? targetText(st) : pickNonTarget(st));
+      this.tier[i] = '';
+    }
   }
 };
 
 function render(){
   const st = getState();
+
   $('#presetHint').textContent = st.preset.hint;
   $('#presetLabel').textContent = st.preset.label;
 
   // armor stat selector enable
   $('#mainStat').disabled = (st.presetKey !== 'armor_mainstat_pct');
 
-  const hits = sim.hits();
+  const hits = sim.hitCount();
   $('#counterCubes').textContent = sim.cubes.toLocaleString();
   $('#counterHits').textContent = `${hits}/3`;
   $('#counterCost').textContent = (sim.cubes * st.price).toLocaleString();
 
   for (let i=0;i<3;i++){
     const el = $(`#line${i+1}`);
-    const hit = sim.lines[i];
+    const hit = sim.hits[i];
     el.classList.toggle('good', hit);
     el.classList.toggle('bad', !hit);
-    el.querySelector('.val').textContent = lineText(hit, st);
+    el.querySelector('.val').textContent = sim.text[i];
+    $(`#tier${i+1}`).textContent = sim.tier[i];
   }
 
   // Estimate section
@@ -142,7 +203,7 @@ function render(){
 
 function onRoll(i){
   const st = getState();
-  sim.rollLine(i, st.p);
+  sim.rollLine(i, st);
   render();
 }
 
@@ -151,10 +212,9 @@ function autoUntilDone(){
   if (st.p <= 0) return;
   const max = Math.max(1, Math.floor(Number($('#autoMax').value || 200000)));
   let n = 0;
-  while (sim.hits() < 3 && n < max){
-    // greedy: reroll the first miss line
-    const idx = sim.lines.findIndex(x=>!x);
-    sim.rollLine(idx < 0 ? 0 : idx, st.p);
+  while (sim.hitCount() < 3 && n < max){
+    const idx = sim.hits.findIndex(x=>!x);
+    sim.rollLine(idx < 0 ? 0 : idx, st);
     n++;
   }
   render();
@@ -165,7 +225,9 @@ function bind(){
   $('#mainStat').addEventListener('change', render);
   ['price','trials','pU','pL'].forEach(id=>$('#'+id).addEventListener('input', render));
 
+  $('#btnApplyInit').addEventListener('click', ()=>{ sim.applyInit(getState()); render(); });
   $('#btnReset').addEventListener('click', ()=>{ sim.reset(); render(); });
+
   $('#btnRoll1').addEventListener('click', ()=>onRoll(0));
   $('#btnRoll2').addEventListener('click', ()=>onRoll(1));
   $('#btnRoll3').addEventListener('click', ()=>onRoll(2));

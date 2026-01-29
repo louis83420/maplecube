@@ -9,7 +9,6 @@
 <body>
   <div class="wrap">
     <h1>附加結合方塊（台服）</h1>
-    <p>專注「附加結合方塊」：同時提供 <b>手動模擬（像 maplestorycube.org 那種按按按）</b> + <b>模式二估算（平均/P50/P90/P99）</b>。</p>
     <p>
       <span class="pill">模式二：每顆只洗一行、其他兩行保留</span>
       <span class="pill">外框不掉等（依你描述）</span>
@@ -65,13 +64,50 @@
     </div>
 
     <div class="card">
-      <h2>手動模擬（按鈕洗一行）</h2>
-      <p class="small">這裡用「是否命中目標」來呈現三排（命中 = 綠色）。因為你只在乎三排同屬性，所以不需要把其他雜條列出來。</p>
-
+      <h2>起始狀態（你現在裝備上已經有的三排）</h2>
+      <p class="small">你可以先把已經洗好的排數勾起來（通常至少 1~2 排已經是目標）。</p>
       <div class="grid3" style="margin-top:10px">
-        <div class="line bad" id="line1"><div><div class="tag">第 1 排</div><div class="val">（非目標）</div></div><button class="btn" id="btnRoll1">洗這排</button></div>
-        <div class="line bad" id="line2"><div><div class="tag">第 2 排</div><div class="val">（非目標）</div></div><button class="btn" id="btnRoll2">洗這排</button></div>
-        <div class="line bad" id="line3"><div><div class="tag">第 3 排</div><div class="val">（非目標）</div></div><button class="btn" id="btnRoll3">洗這排</button></div>
+        <div class="line" id="init1">
+          <div>
+            <div class="tag">第 1 排</div>
+            <label class="small" style="margin:6px 0 0;display:flex;gap:8px;align-items:center">
+              <input type="checkbox" id="initHit1" /> 已命中目標
+            </label>
+            <input id="initText1" placeholder="（可選）手動輸入目前文字，例如：LUK +12" />
+          </div>
+        </div>
+        <div class="line" id="init2">
+          <div>
+            <div class="tag">第 2 排</div>
+            <label class="small" style="margin:6px 0 0;display:flex;gap:8px;align-items:center">
+              <input type="checkbox" id="initHit2" /> 已命中目標
+            </label>
+            <input id="initText2" placeholder="（可選）手動輸入目前文字" />
+          </div>
+        </div>
+        <div class="line" id="init3">
+          <div>
+            <div class="tag">第 3 排</div>
+            <label class="small" style="margin:6px 0 0;display:flex;gap:8px;align-items:center">
+              <input type="checkbox" id="initHit3" /> 已命中目標
+            </label>
+            <input id="initText3" placeholder="（可選）手動輸入目前文字" />
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn" id="btnApplyInit">套用起始狀態</button>
+        <button class="btn secondary" id="btnReset">重置</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>手動模擬（按鈕洗一行）</h2>
+      <div class="grid3" style="margin-top:10px">
+        <div class="line bad" id="line1"><div><div class="tag">第 1 排</div><div class="val">（尚未套用）</div><div class="small" id="tier1"></div></div><button class="btn" id="btnRoll1">洗這排</button></div>
+        <div class="line bad" id="line2"><div><div class="tag">第 2 排</div><div class="val">（尚未套用）</div><div class="small" id="tier2"></div></div><button class="btn" id="btnRoll2">洗這排</button></div>
+        <div class="line bad" id="line3"><div><div class="tag">第 3 排</div><div class="val">（尚未套用）</div><div class="small" id="tier3"></div></div><button class="btn" id="btnRoll3">洗這排</button></div>
       </div>
 
       <div class="row" style="margin-top:12px">
@@ -86,24 +122,16 @@
           <input id="autoMax" type="number" min="1" step="1" value="200000" />
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
             <button class="btn" id="btnAuto">自動跑到 3/3 或達上限</button>
-            <button class="btn secondary" id="btnReset">重置</button>
           </div>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>模式二估算（不按按鈕、直接算）</h2>
+      <h2>模式二估算（直接算）</h2>
       <pre id="out">載入中…</pre>
       <p class="small" style="margin-top:10px">
         來源：<a href="https://maplestory-event.beanfun.com/eventad/eventad?eventadid=8422" target="_blank" rel="noreferrer">台服公告 eventadid=8422</a>
-      </p>
-    </div>
-
-    <div class="card">
-      <h2>備註</h2>
-      <p class="small">
-        這個版本先把「結合附加方塊、模式二」做紮實；之後如果你要像 maplestorycube.org 一樣能選裝備部位/顯示完整詞條池，我們再把詞條表補齊做進來。
       </p>
     </div>
   </div>
