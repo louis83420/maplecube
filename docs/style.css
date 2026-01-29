@@ -1,0 +1,32 @@
+:root{--bg:#0b1220;--panel:#101a2f;--panel2:#0e1730;--text:#eaf0ff;--muted:#aab6d6;--accent:#7dd3fc;--good:#34d399;--bad:#fb7185;--border:#1f2a44;--border2:#2a375a}
+*{box-sizing:border-box}
+body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text);}
+.wrap{max-width:980px;margin:0 auto;padding:24px;}
+h1{margin:0 0 8px;font-size:22px;}
+h2{margin:0 0 10px;font-size:16px}
+p{margin:8px 0;color:var(--muted);line-height:1.5}
+a{color:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin:16px 0;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:860px){.row{grid-template-columns:1fr;}}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 6px;}
+select,input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);}
+.btn{cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:linear-gradient(180deg,#0f2146,#0b1730);color:var(--text);}
+.btn:hover{border-color:var(--border2);}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.secondary{background:transparent}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#0a1020;border:1px solid var(--border);color:var(--muted);font-size:12px;margin-right:6px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+@media (max-width:860px){.grid3{grid-template-columns:1fr;}}
+.line{border:1px solid var(--border);border-radius:12px;padding:12px;background:#0a1020;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.line .tag{font-size:12px;color:var(--muted)}
+.line .val{font-weight:700}
+.line.good{border-color:rgba(52,211,153,.45)}
+.line.good .val{color:var(--good)}
+.line.bad{border-color:rgba(251,113,133,.35)}
+.line.bad .val{color:var(--bad)}
+.small{font-size:12px;color:var(--muted)}
+pre{white-space:pre-wrap;background:#0a1020;border:1px solid var(--border);padding:12px;border-radius:10px;line-height:1.45;margin:0}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center}
+@media (max-width:860px){.kv{grid-template-columns:1fr;}}
+hr{border:0;border-top:1px solid var(--border);margin:14px 0}

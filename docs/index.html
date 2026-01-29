@@ -3,32 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MapleCube - 附加結合方塊模擬器（台服）</title>
-  <style>
-    :root{--bg:#0b1220;--card:#101a2f;--text:#eaf0ff;--muted:#aab6d6;--accent:#7dd3fc;--border:#1f2a44;}
-    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text);}
-    .wrap{max-width:920px;margin:0 auto;padding:24px;}
-    h1{margin:0 0 8px;font-size:22px;}
-    p{margin:8px 0;color:var(--muted);line-height:1.5}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin:16px 0;}
-    label{display:block;font-size:13px;color:var(--muted);margin:10px 0 6px;}
-    select,input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#0e1730;color:var(--text);}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-    .btn{cursor:pointer;margin-top:12px;display:inline-block;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:linear-gradient(180deg,#0f2146,#0b1730);color:var(--text);}
-    .btn:hover{border-color:#2e3a5e;}
-    pre{white-space:pre-wrap;background:#0a1020;border:1px solid var(--border);padding:12px;border-radius:10px;line-height:1.45;}
-    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#0a1020;border:1px solid var(--border);color:var(--muted);font-size:12px;margin-right:6px}
-    a{color:var(--accent)}
-  </style>
+  <title>MapleCube - 附加結合方塊（台服）</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <div class="wrap">
-    <h1>附加結合方塊模擬器（台服）</h1>
-    <p>模式二：依你描述的洗法（每顆方塊只重洗你選的其中一行、另外兩行不動），估算達成「三排同屬性」需要的顆數與成本。</p>
+    <h1>附加結合方塊（台服）</h1>
+    <p>專注「附加結合方塊」：同時提供 <b>手動模擬（像 maplestorycube.org 那種按按按）</b> + <b>模式二估算（平均/P50/P90/P99）</b>。</p>
     <p>
-      <span class="pill">不會倒退進度</span>
-      <span class="pill">支援 P50 / P90 / P99</span>
-      <span class="pill">單顆成本可改</span>
+      <span class="pill">模式二：每顆只洗一行、其他兩行保留</span>
+      <span class="pill">外框不掉等（依你描述）</span>
+      <span class="pill">資料：台服公告 eventadid=8422（結合附加欄位）</span>
     </p>
 
     <div class="card">
@@ -41,6 +26,7 @@
             <option value="glove_crit_dmg">手套：三排爆傷%</option>
             <option value="hat_cooldown">帽子：三排減CD（僅傳說才算）</option>
           </select>
+          <p class="small" style="margin-top:8px">提示：<span id="presetHint"></span></p>
         </div>
         <div>
           <label>防具主屬（只在「防具」用到）</label>
@@ -55,149 +41,73 @@
 
       <div class="row">
         <div>
-          <label>目前已命中幾排（0~3）</label>
-          <input id="hits" type="number" min="0" max="3" step="1" value="0" />
-        </div>
-        <div>
-          <label>每顆成本（例如 135）</label>
+          <label>每顆成本</label>
           <input id="price" type="number" min="0" step="1" value="135" />
         </div>
-      </div>
-
-      <div class="row">
         <div>
-          <label>模擬次數（越大越穩，但越慢）</label>
+          <label>模擬次數（估算用）</label>
           <input id="trials" type="number" min="1000" step="1000" value="50000" />
         </div>
-        <div>
-          <label>（可選）自訂機率覆蓋：罕見命中率 pU（%）</label>
-          <input id="pU" placeholder="留空 = 用公告預設" />
-        </div>
       </div>
 
       <div class="row">
         <div>
-          <label>（可選）自訂機率覆蓋：傳說命中率 pL（%）</label>
-          <input id="pL" placeholder="留空 = 用公告預設" />
+          <label>（可選）自訂覆蓋：罕見命中率 pU（%）</label>
+          <input id="pU" placeholder="留空 = 用公告預設" />
         </div>
         <div>
-          <label>&nbsp;</label>
-          <button class="btn" id="run">開始計算</button>
+          <label>（可選）自訂覆蓋：傳說命中率 pL（%）</label>
+          <input id="pL" placeholder="留空 = 用公告預設" />
         </div>
       </div>
 
-      <p style="margin-top:12px">說明：結合附加方塊每行「實際詞條」大多是罕見，少量是傳說；本工具用混合機率 <code>p = 0.995*pU + 0.005*pL</code> 來估。</p>
+      <p class="small">目前預設用混合：<code>p = 0.995 * pU + 0.005 * pL</code>（結合附加方塊每行內部等級：罕見 99.5%、傳說 0.5%）。</p>
     </div>
 
     <div class="card">
-      <h2 style="margin:0 0 10px;font-size:16px">結果</h2>
-      <pre id="out">按「開始計算」</pre>
-      <p style="font-size:12px">資料來源：<a href="https://maplestory-event.beanfun.com/eventad/eventad?eventadid=8422" target="_blank" rel="noreferrer">eventadid=8422</a>（結合附加欄位）+ 你提供的「外框不掉等、帽子減CD僅傳說」規則。</p>
+      <h2>手動模擬（按鈕洗一行）</h2>
+      <p class="small">這裡用「是否命中目標」來呈現三排（命中 = 綠色）。因為你只在乎三排同屬性，所以不需要把其他雜條列出來。</p>
+
+      <div class="grid3" style="margin-top:10px">
+        <div class="line bad" id="line1"><div><div class="tag">第 1 排</div><div class="val">（非目標）</div></div><button class="btn" id="btnRoll1">洗這排</button></div>
+        <div class="line bad" id="line2"><div><div class="tag">第 2 排</div><div class="val">（非目標）</div></div><button class="btn" id="btnRoll2">洗這排</button></div>
+        <div class="line bad" id="line3"><div><div class="tag">第 3 排</div><div class="val">（非目標）</div></div><button class="btn" id="btnRoll3">洗這排</button></div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <div>
+          <div class="kv"><div class="small">目標</div><div id="presetLabel"></div></div>
+          <div class="kv"><div class="small">已用顆數</div><div><b id="counterCubes">0</b></div></div>
+          <div class="kv"><div class="small">命中</div><div><b id="counterHits">0/3</b></div></div>
+          <div class="kv"><div class="small">總花費</div><div><b id="counterCost">0</b></div></div>
+        </div>
+        <div>
+          <label>自動跑（一直洗沒中的那排）最大顆數</label>
+          <input id="autoMax" type="number" min="1" step="1" value="200000" />
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn" id="btnAuto">自動跑到 3/3 或達上限</button>
+            <button class="btn secondary" id="btnReset">重置</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>模式二估算（不按按鈕、直接算）</h2>
+      <pre id="out">載入中…</pre>
+      <p class="small" style="margin-top:10px">
+        來源：<a href="https://maplestory-event.beanfun.com/eventad/eventad?eventadid=8422" target="_blank" rel="noreferrer">台服公告 eventadid=8422</a>
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>備註</h2>
+      <p class="small">
+        這個版本先把「結合附加方塊、模式二」做紮實；之後如果你要像 maplestorycube.org 一樣能選裝備部位/顯示完整詞條池，我們再把詞條表補齊做進來。
+      </p>
     </div>
   </div>
 
-<script>
-  // Assumptions from your description + eventad table:
-  // - Outer tier stays legendary.
-  // - Each reroll produces an internal-tier line: legendary with 0.5%, unique with 99.5%.
-  const LINE_TIER = { pL: 0.005, pU: 0.995 };
-
-  // Preset per-line target probability, conditional on internal tier.
-  // NOTE: These are best-effort from the event page text extraction.
-  const PRESETS = {
-    weapon_phys_pct: {
-      label: '武器/副武/徽章：三排物攻%（罕見/傳說都算）',
-      pU: 0.0123, // 罕見 武器/副武 物理攻擊力% 結合附加
-      pL: 0.0126, // 傳說 武器 物理攻擊力% 結合附加
-    },
-    armor_mainstat_pct: {
-      label: '防具：三排主屬%（依職業）',
-      // Use the generic armor-other row (unique) + the armor group row (legendary) as defaults.
-      // We map STR/DEX/INT/LUK all to same p values (table shows symmetric).
-      pU: 0.0190, // 罕見 防具、其他 主屬% 結合附加
-      pL: 0.0157, // 傳說 上衣..等 主屬% 結合附加
-    },
-    glove_crit_dmg: {
-      label: '手套：三排爆傷%（罕見/傳說都算；可用自訂機率覆蓋）',
-      pU: 0.0104,
-      pL: 0.0104,
-    },
-    hat_cooldown: {
-      label: '帽子：三排減CD（僅傳說）',
-      pU: 0.0,
-      pL: 0.0104, // 傳說 帽子專用 減少所有技能冷卻時間 結合附加
-    }
-  };
-
-  function fmtPct(x){ return (x*100).toFixed(4)+'%'; }
-
-  function mixP(pU, pL){
-    return LINE_TIER.pU * pU + LINE_TIER.pL * pL;
-  }
-
-  function analyticExpected(need, p){
-    if (need <= 0) return 0;
-    if (p <= 0) return Infinity;
-    return need / p;
-  }
-
-  function monteCarlo(need, p, trials){
-    const arr = new Array(trials);
-    for (let t=0;t<trials;t++){
-      let remaining = need;
-      let cubes = 0;
-      while (remaining>0){
-        cubes++;
-        if (Math.random() < p) remaining--;
-        if (cubes > 50_000_000) break;
-      }
-      arr[t]=cubes;
-    }
-    arr.sort((a,b)=>a-b);
-    const avg = arr.reduce((s,x)=>s+x,0)/trials;
-    const q = (q)=>arr[Math.floor(trials*q)];
-    return { avg, p50:q(0.5), p90:q(0.9), p99:q(0.99) };
-  }
-
-  function run(){
-    const presetKey = document.getElementById('preset').value;
-    const preset = PRESETS[presetKey];
-    const hits = Math.max(0, Math.min(3, Math.floor(Number(document.getElementById('hits').value || 0))));
-    const need = 3 - hits;
-    const price = Number(document.getElementById('price').value || 0);
-    const trials = Math.max(1000, Math.floor(Number(document.getElementById('trials').value || 50000)));
-
-    const pUin = document.getElementById('pU').value.trim();
-    const pLin = document.getElementById('pL').value.trim();
-
-    // User can override using percentages.
-    const pU = pUin ? (Number(pUin)/100) : preset.pU;
-    const pL = pLin ? (Number(pLin)/100) : preset.pL;
-
-    const p = mixP(pU, pL);
-    const exp = analyticExpected(need, p);
-    const mc = (need===0) ? {avg:0,p50:0,p90:0,p99:0} : monteCarlo(need, p, trials);
-
-    const costExp = Number.isFinite(exp) ? exp * price : Infinity;
-
-    const out = [];
-    out.push(preset.label);
-    if (presetKey === 'armor_mainstat_pct') {
-      const stat = document.getElementById('mainStat').value;
-      out.push(`主屬：${stat}%（此版本假設四主屬機率相同）`);
-    }
-    out.push(`內部命中機率：罕見=${fmtPct(pU)} 傳說=${fmtPct(pL)} → 混合後每洗一行 p=${fmtPct(p)}`);
-    out.push(`目前已命中：${hits}/3 → 還差 ${need} 行`);
-    out.push('');
-    out.push(`解析期望顆數：${Number.isFinite(exp) ? exp.toFixed(2) : 'Infinity'} 顆`);
-    out.push(`估花費（×${price}/顆）：${Number.isFinite(costExp) ? Math.round(costExp).toLocaleString() : 'Infinity'}`);
-    out.push('');
-    out.push(`Monte Carlo（${trials.toLocaleString()} 次）：平均 ${mc.avg.toFixed(2)} 顆 | P50=${mc.p50} | P90=${mc.p90} | P99=${mc.p99}`);
-
-    document.getElementById('out').textContent = out.join('\n');
-  }
-
-  document.getElementById('run').addEventListener('click', run);
-</script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
