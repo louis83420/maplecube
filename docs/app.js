@@ -2,7 +2,47 @@
 // - You pick a single line to reroll; other lines are preserved.
 // - Goal: get 3 lines that are the desired attribute.
 
-const LINE_TIER = { pL: 0.005, pU: 0.995 }; // internal line tier distribution
+// When current outer tier is legendary: internal line tier is legendary with 0.5%, unique with 99.5%.
+const LINE_TIER = { pL: 0.005, pU: 0.995 };
+
+const LEVEL_BRACKETS = {
+  '91-150': { min: 91, max: 150, idx: 0 },
+  '151-200': { min: 151, max: 200, idx: 1 },
+  '201-250': { min: 201, max: 250, idx: 2 },
+};
+
+// Minimal value table for the 4 targets we care about (initial version).
+// unique ~= 罕見(=epic bonus), legendary ~= 傳說.
+const VALUE_TABLE = {
+  // Attack% for weapon group
+  'ATT%': {
+    unique:   [9, 10, 10],
+    legendary:[12, 13, 13],
+    unit: '%',
+    zh: '物理攻擊力 %',
+  },
+  // Main stat%
+  'MAINSTAT%': {
+    unique:   [6, 6, 7],
+    legendary:[8, 8, 9],
+    unit: '%',
+    zh: '主屬性 %',
+  },
+  // Crit dmg for gloves
+  'CritDmg_Glove': {
+    unique:   [0, 0, 0],
+    legendary:[3, 3, 3],
+    unit: '%',
+    zh: '爆擊傷害',
+  },
+  // Cooldown reduction for hats
+  'CDR': {
+    unique:   [0, 0, 0],
+    legendary:[1, 1, 1],
+    unit: 's',
+    zh: '技能冷卻時間減少',
+  },
+};
 
 const PRESETS = {
   weapon_phys_pct: {
@@ -127,24 +167,55 @@ function readProbInputs(preset){
   return { pU, pL };
 }
 
+function getTargetStatKey(st){
+  if (st.presetKey === 'weapon_phys_pct') return 'ATT%';
+  if (st.presetKey === 'armor_mainstat_pct') return 'MAINSTAT%';
+  if (st.presetKey === 'glove_crit_dmg') return 'CritDmg_Glove';
+  if (st.presetKey === 'hat_cooldown') return 'CDR';
+  return 'ATT%';
+}
+
 function getState(){
   const presetKey = $('#preset').value;
   const preset = PRESETS[presetKey];
   const price = Number($('#price').value || 0);
-  const trials = Math.max(1000, Math.floor(Number($('#trials').value || 50000)));
+  const trials = Math.max(500, Math.floor(Number($('#trials').value || 5000)));
   const mainStat = $('#mainStat').value;
+  const levelBracket = $('#levelBracket')?.value || '151-200';
+  const currentTier = $('#currentTier')?.value || 'unique';
   const { pU, pL } = readProbInputs(preset);
   const p = mixP(pU, pL);
+  const targetStatKey = getTargetStatKey({ presetKey });
 
-  return { presetKey, preset, price, trials, mainStat, pU, pL, p };
+  return { presetKey, preset, price, trials, mainStat, levelBracket, currentTier, targetStatKey, pU, pL, p };
 }
 
-function targetText(st){
-  if (st.presetKey === 'armor_mainstat_pct') return `${st.mainStat}%`;
-  if (st.presetKey === 'weapon_phys_pct') return '物理攻擊力%';
-  if (st.presetKey === 'glove_crit_dmg') return '爆擊傷害%';
-  if (st.presetKey === 'hat_cooldown') return '減少所有技能冷卻時間';
+function formatTargetText(st, tier){
+  const idx = LEVEL_BRACKETS[st.levelBracket]?.idx ?? 1;
+  const key = st.targetStatKey;
+  if (key === 'MAINSTAT%') {
+    const base = VALUE_TABLE[key][tier][idx] ?? 0;
+    return `${st.mainStat}% +${base}%`;
+  }
+  if (key === 'ATT%') {
+    const base = VALUE_TABLE[key][tier][idx] ?? 0;
+    return `物理攻擊力 % +${base}%`;
+  }
+  if (key === 'CritDmg_Glove') {
+    const base = VALUE_TABLE[key][tier][idx] ?? 0;
+    return `爆擊傷害 +${base}%`;
+  }
+  if (key === 'CDR') {
+    const base = VALUE_TABLE[key][tier][idx] ?? 0;
+    return `技能冷卻時間減少 -${base}秒`;
+  }
   return '（命中）';
+}
+
+function extractValueNumber(text){
+  // Pull the first integer in the string (covers +13%, -1秒, +300, etc.)
+  const m = String(text).match(/([0-9]+)/);
+  return m ? Number(m[1]) : 0;
 }
 
 function pickNonTarget(st){
@@ -152,8 +223,17 @@ function pickNonTarget(st){
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
-function sampleTier(){
-  return (Math.random() < LINE_TIER.pL) ? '傳說' : '罕見';
+function sampleInternalTier(st){
+  // If current outer tier is legendary: internal tier is legendary with 0.5%, else unique.
+  if (st.currentTier === 'legendary') {
+    return (Math.random() < LINE_TIER.pL) ? 'legendary' : 'unique';
+  }
+  // If current tier is unique (or lower): treat internal tier as unique for our simplified model.
+  return 'unique';
+}
+
+function tierLabel(t){
+  return t === 'legendary' ? '傳說' : '罕見';
 }
 
 const sim = {
@@ -162,7 +242,8 @@ const sim = {
   tier: ['','',''],
   cubes: 0,
   lastPicked: null,
-  pending: null, // { idx, hit, text, tier }
+  pending: null, // { idx, hit, ... }
+  pickCounts: [0,0,0],
 
   reset(){
     this.hits=[false,false,false];
@@ -171,6 +252,7 @@ const sim = {
     this.cubes=0;
     this.lastPicked=null;
     this.pending=null;
+    this.pickCounts=[0,0,0];
   },
   hitCount(){ return this.hits.filter(Boolean).length; },
 
@@ -179,17 +261,24 @@ const sim = {
     const idx = Math.floor(Math.random()*3);
     this.lastPicked = idx;
     this.cubes++;
+    this.pickCounts[idx] = (this.pickCounts[idx] ?? 0) + 1;
 
-    const tier = sampleTier();
+    const internalTier = sampleInternalTier(st);
     const isHit = (Math.random() < st.p);
-    const newText = isHit ? targetText(st) : pickNonTarget(st);
+    const newText = isHit ? formatTargetText(st, internalTier) : pickNonTarget(st);
+
+    // extract numeric value for target checks
+    const valueNumber = extractValueNumber(newText);
 
     // Do NOT apply immediately. Wait for confirm/cancel.
     this.pending = {
       idx,
       hit: isHit,
+      statKey: st.targetStatKey,
+      internalTier,
+      valueNumber,
       text: newText,
-      tier: `本次選中：第 ${idx+1} 排｜內部等級：${tier}`
+      tier: `本次選中：第 ${idx+1} 排｜內部等級：${tierLabel(internalTier)}`
     };
     return idx;
   },
@@ -214,7 +303,7 @@ const sim = {
       const sel = $(`#initSel${i+1}`);
       const val = sel ? String(sel.value || '').trim() : '';
       this.hits[i] = chk;
-      this.text[i] = val || (chk ? targetText(st) : pickNonTarget(st));
+      this.text[i] = val || (chk ? formatTargetText(st, 'legendary') : pickNonTarget(st));
       this.tier[i] = '';
     }
     this.lastPicked = null;
@@ -237,6 +326,9 @@ function render(doEstimate = false){
   $('#counterCubes').textContent = sim.cubes.toLocaleString();
   $('#counterHits').textContent = `${hits}/3`;
   $('#counterCost').textContent = (sim.cubes * st.price).toLocaleString();
+  $('#pick1') && ($('#pick1').textContent = String(sim.pickCounts?.[0] ?? 0));
+  $('#pick2') && ($('#pick2').textContent = String(sim.pickCounts?.[1] ?? 0));
+  $('#pick3') && ($('#pick3').textContent = String(sim.pickCounts?.[2] ?? 0));
 
   for (let i=0;i<3;i++){
     const el = $(`#line${i+1}`);
@@ -268,13 +360,15 @@ function render(doEstimate = false){
   }
 
   const btnConfirm = $('#btnConfirm');
+  const btnReselect = $('#btnReselect');
   const btnCancel = $('#btnCancel');
   if (btnConfirm) btnConfirm.disabled = !sim.pending;
+  if (btnReselect) btnReselect.disabled = !sim.pending;
   if (btnCancel) btnCancel.disabled = !sim.pending;
 
   // Estimate section (correct rule: each cube randomly selects ONE line; hits can be lost)
   const out = [];
-  out.push(`單顆：隨機選 1 排（1/3）重洗；你可以按「取消」不套用，避免把已命中的好詞條洗掉（但仍會消耗一顆）。`);
+  out.push(`單顆：隨機選 1 排（1/3）重洗；可取消不套用（仍耗 1 顆）；也可「重新隨機選排」直到抽到你要的排。`);
   out.push(`重洗後命中率（混合）：p = ${fmtPct(st.p)}  （罕見=${fmtPct(st.pU)} / 傳說=${fmtPct(st.pL)}）`);
   out.push(`目前命中：${hits}/3`);
 
@@ -299,17 +393,62 @@ function render(doEstimate = false){
   $('#btnUseOnce') && ($('#btnUseOnce').disabled = (hits===3 || st.p<=0));
 }
 
+function meetsAutoTarget(st){
+  const pending = sim.pending;
+  if (!pending) return false;
+  const targetIdx = (Number($('#targetLine')?.value || 3) - 1);
+  const minValue = Number($('#minValue')?.value || 0);
+  const requireL = !!$('#requireLegendary')?.checked;
+
+  if (pending.idx !== targetIdx) return false;
+  if (!pending.hit) return false;
+  if (requireL && pending.internalTier !== 'legendary') return false;
+  if (pending.statKey !== st.targetStatKey) return false;
+  if (minValue > 0 && pending.valueNumber < minValue) return false;
+  return true;
+}
+
 function autoUntilDone(){
+  // Legacy: auto to 3/3 by confirming only hits.
   const st = getState();
   if (st.p <= 0) return;
   const max = Math.max(1, Math.floor(Number($('#autoMax').value || 200000)));
   let n = 0;
   while (sim.hitCount() < 3 && n < max){
     sim.useOnce(st);
-    // confirm only if the pending result hits; otherwise cancel
     if (sim.pending && sim.pending.hit) sim.confirm();
     else sim.cancel();
     n++;
+  }
+  render(false);
+}
+
+function autoToTarget(){
+  const st = getState();
+  if (st.p <= 0) return;
+  const max = Math.max(1, Math.floor(Number($('#autoMax').value || 200000)));
+  const targetIdx = (Number($('#targetLine')?.value || 3) - 1);
+
+  let n = 0;
+  while (n < max) {
+    sim.useOnce(st);
+
+    // If not the target line: reselect (waste a cube)
+    if (sim.pending && sim.pending.idx !== targetIdx) {
+      sim.cancel();
+      n++;
+      continue;
+    }
+
+    // target line: confirm only if passes conditions
+    if (meetsAutoTarget(st)) {
+      sim.confirm();
+      break;
+    } else {
+      sim.cancel();
+      n++;
+      continue;
+    }
   }
   render(false);
 }
@@ -318,7 +457,8 @@ function buildInitSelects(){
   const st = getState();
   const opts = [];
   opts.push({ v: '', t: '（自動/不指定）' });
-  opts.push({ v: targetText(st), t: `【目標】${targetText(st)}` });
+  const tgt = formatTargetText(st, 'legendary');
+  opts.push({ v: tgt, t: `【目標】${tgt}` });
   // Add a handful of common non-target lines for quick selection.
   const pool = NON_TARGET_POOL[st.presetKey] || [];
   for (const s of pool) opts.push({ v: s, t: s });
@@ -341,7 +481,10 @@ function buildInitSelects(){
 function bind(){
   $('#preset').addEventListener('change', ()=>{ sim.reset(); buildInitSelects(); render(false); });
   $('#mainStat').addEventListener('change', ()=>{ buildInitSelects(); render(false); });
-  ['price','trials','pU','pL'].forEach(id=>$('#'+id).addEventListener('input', ()=>render(false)));
+  $('#levelBracket')?.addEventListener('change', ()=>{ buildInitSelects(); render(false); });
+  $('#currentTier')?.addEventListener('change', ()=>{ buildInitSelects(); render(false); });
+  ['price','trials','pU','pL','minValue'].forEach(id=>$('#'+id)?.addEventListener('input', ()=>render(false)));
+  ['targetLine','requireLegendary'].forEach(id=>$('#'+id)?.addEventListener('change', ()=>render(false)));
 
   $('#btnApplyInit').addEventListener('click', ()=>{ sim.applyInit(getState()); render(false); });
   $('#btnReset').addEventListener('click', ()=>{ sim.reset(); render(false); });
@@ -357,12 +500,20 @@ function bind(){
     render(false);
   });
 
+  $('#btnReselect')?.addEventListener('click', ()=>{
+    // Discard pending and spend one more cube to pick another line.
+    sim.cancel();
+    sim.useOnce(getState());
+    render(false);
+  });
+
   $('#btnCancel')?.addEventListener('click', ()=>{
     sim.cancel();
     render(false);
   });
 
   $('#btnAuto').addEventListener('click', ()=>autoUntilDone());
+  $('#btnAutoTarget')?.addEventListener('click', ()=>autoToTarget());
 
   $('#btnEstimate')?.addEventListener('click', ()=>render(true));
 }

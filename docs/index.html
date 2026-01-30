@@ -40,6 +40,24 @@
 
       <div class="row">
         <div>
+          <label>裝備等級區間</label>
+          <select id="levelBracket">
+            <option value="91-150">91–150</option>
+            <option value="151-200" selected>151–200</option>
+            <option value="201-250">201–250</option>
+          </select>
+        </div>
+        <div>
+          <label>目前等級（洗出來會顯示：罕見/傳說）</label>
+          <select id="currentTier">
+            <option value="unique" selected>罕見</option>
+            <option value="legendary">傳說</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
           <label>每顆成本</label>
           <input id="price" type="number" min="0" step="1" value="135" />
         </div>
@@ -110,6 +128,7 @@
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
         <button class="btn" id="btnUseOnce">使用一次</button>
         <button class="btn" id="btnConfirm" disabled>確認</button>
+        <button class="btn secondary" id="btnReselect" disabled>重新隨機選排</button>
         <button class="btn secondary" id="btnCancel" disabled>取消</button>
         <button class="btn secondary" id="btnReset2">重置</button>
         <span class="small" id="pickedInfo" style="align-self:center"></span>
@@ -127,14 +146,39 @@
           <div class="kv"><div class="small">已用顆數</div><div><b id="counterCubes">0</b></div></div>
           <div class="kv"><div class="small">命中</div><div><b id="counterHits">0/3</b></div></div>
           <div class="kv"><div class="small">總花費</div><div><b id="counterCost">0</b></div></div>
+          <div class="kv"><div class="small">選排統計</div><div><span id="pick1">0</span>/<span id="pick2">0</span>/<span id="pick3">0</span></div></div>
         </div>
         <div>
-          <label>自動跑（一直洗沒中的那排）最大顆數</label>
-          <input id="autoMax" type="number" min="1" step="1" value="200000" />
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
-            <button class="btn" id="btnAuto">自動跑到 3/3 或達上限</button>
-            <p class="small" style="margin:8px 0 0">注意：選到已命中的那排時，你通常會按「取消」避免把好詞條洗掉（但會浪費一顆）。</p>
+          <label>自動洗（像你貼的網站那種）</label>
+          <div class="row">
+            <div>
+              <label class="small">目標排數</label>
+              <select id="targetLine">
+                <option value="1">第 1 排</option>
+                <option value="2">第 2 排</option>
+                <option value="3" selected>第 3 排</option>
+              </select>
+            </div>
+            <div>
+              <label class="small">最低門檻（例如 13，表示 ≥13% / ≥13秒）</label>
+              <input id="minValue" type="number" min="0" step="1" value="0" />
+            </div>
           </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <label class="small" style="display:flex;gap:8px;align-items:center">
+              <input type="checkbox" id="requireLegendary" checked /> 只接受「傳說」
+            </label>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div>
+              <button class="btn" id="btnAutoTarget">自動洗到目標</button>
+            </div>
+            <div>
+              <label class="small">最大顆數</label>
+              <input id="autoMax" type="number" min="1" step="1" value="200000" />
+            </div>
+          </div>
+          <p class="small" style="margin-top:8px">規則：非目標排 → 自動「重新隨機選排」（消耗 1 顆）；抽到目標排才會判斷門檻，達標才按「確認」。</p>
         </div>
       </div>
     </div>
