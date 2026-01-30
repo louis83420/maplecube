@@ -70,104 +70,48 @@ function mixP(pU, pL){ return LINE_TIER.pU*pU + LINE_TIER.pL*pL; }
 // Expected cubes under the correct rule:
 // each cube randomly selects ONE line (1/3) to reroll; the rerolled line becomes hit with prob p else miss.
 // This can decrease the number of hits if a good line is rerolled and turns bad.
+// Expected cubes under the real UI rule (confirm/cancel):
+// - Each cube randomly selects ONE line (1/3) to reroll.
+// - You may CANCEL (do not apply), which preserves the current lines.
+// - Rational strategy: only CONFIRM when the selected line becomes a hit (or at least improves towards your goal).
+// For our simplified goal (hit vs non-hit), we confirm iff it hits.
+// Then progress never decreases; sometimes a cube is wasted by selecting an already-hit line.
 function expectedCubesToFinish(p, k0){
   if (k0 >= 3) return 0;
   if (p <= 0) return Infinity;
-  // Markov chain on k=0..3 (hits count), with 3 absorbing.
-  // From k:
-  // - pick bad line: prob (3-k)/3 -> k+1 with prob p, else k.
-  // - pick good line: prob k/3 -> k-1 with prob (1-p), else k.
-  // Solve linear equations for E0..E2.
-  const E = [0,0,0,0];
-  // We'll solve using simple algebra elimination (3 unknowns E0,E1,E2).
-  // Write equations: E_k = 1 + a_k*(p*E_{k+1}+(1-p)*E_k) + b_k*(p*E_k+(1-p)*E_{k-1})
-  // where a_k=(3-k)/3, b_k=k/3.
-  const a0 = 1, b0 = 0; // k=0 => a=1, b=0
-  const a1 = 2/3, b1 = 1/3;
-  const a2 = 1/3, b2 = 2/3;
-
-  // Convert to linear form: A*E = c
-  // k=0: E0 = 1 + 1*(p*E1 + (1-p)*E0)
-  // => E0 - (1-p)*E0 - p*E1 = 1 => p*E0 - p*E1 = 1
-  // => E0 - E1 = 1/p
-  // k=1: E1 = 1 + a1*(p*E2+(1-p)*E1) + b1*(p*E1 + (1-p)*E0)
-  // k=2: E2 = 1 + a2*(p*E3+(1-p)*E2) + b2*(p*E2 + (1-p)*E1), with E3=0
-
-  // We'll build matrix for [E0,E1,E2]
-  const M = [
-    [ 1, -1, 0 ],
-    [ 0,  0, 0 ],
-    [ 0,  0, 0 ],
-  ];
-  const C = [ 1/p, 0, 0 ];
-
-  // k=1 expand:
-  // E1 = 1 + a1*p*E2 + a1*(1-p)*E1 + b1*p*E1 + b1*(1-p)*E0
-  // Bring to left:
-  // E1 - a1*(1-p)*E1 - b1*p*E1 - a1*p*E2 - b1*(1-p)*E0 = 1
-  // => [ -b1*(1-p) ]E0 + [ 1 - a1*(1-p) - b1*p ]E1 + [ -a1*p ]E2 = 1
-  M[1][0] = -b1*(1-p);
-  M[1][1] =  1 - a1*(1-p) - b1*p;
-  M[1][2] = -a1*p;
-  C[1] = 1;
-
-  // k=2 expand:
-  // E2 = 1 + a2*p*E3 + a2*(1-p)*E2 + b2*p*E2 + b2*(1-p)*E1
-  // E3=0, so:
-  // E2 - a2*(1-p)*E2 - b2*p*E2 - b2*(1-p)*E1 = 1
-  // => 0*E0 + [ -b2*(1-p) ]E1 + [ 1 - a2*(1-p) - b2*p ]E2 = 1
-  M[2][0] = 0;
-  M[2][1] = -b2*(1-p);
-  M[2][2] =  1 - a2*(1-p) - b2*p;
-  C[2] = 1;
-
-  // Solve 3x3 via Gaussian elimination
-  const A = M.map(r=>r.slice());
-  const b = C.slice();
-  for (let i=0;i<3;i++){
-    // pivot
-    let piv=i;
-    for (let r=i+1;r<3;r++) if (Math.abs(A[r][i])>Math.abs(A[piv][i])) piv=r;
-    if (Math.abs(A[piv][i])<1e-12) return Infinity;
-    if (piv!==i){ [A[i],A[piv]]=[A[piv],A[i]]; [b[i],b[piv]]=[b[piv],b[i]]; }
-    const div=A[i][i];
-    for (let c=i;c<3;c++) A[i][c]/=div;
-    b[i]/=div;
-    for (let r=0;r<3;r++){
-      if (r===i) continue;
-      const f=A[r][i];
-      for (let c=i;c<3;c++) A[r][c]-=f*A[i][c];
-      b[r]-=f*b[i];
-    }
-  }
-  const [E0,E1,E2] = b;
-  E[0]=E0;E[1]=E1;E[2]=E2;E[3]=0;
-  return E[k0];
+  // Let m = number of missing lines = 3-k.
+  // Each cube selects a missing line with prob m/3, then hits with prob p.
+  // So probability of reducing m by 1 on a given cube is (m/3)*p.
+  // Expected cubes to reduce m by 1: 1 / ((m/3)*p) = 3/(m*p).
+  // Total expected cubes: sum_{m=3-k0..1} 3/(m*p) = (3/p) * H_{3-k0}.
+  let m = 3 - k0;
+  let sum = 0;
+  for (; m >= 1; m--) sum += 3 / (m * p);
+  return sum;
 }
 
 function simulateCubesToFinish(p, k0, trials){
   const arr = new Array(trials);
   for (let t=0;t<trials;t++){
-    let hits=k0;
+    let hits = k0;
     const line = [false,false,false];
-    // initialize with k0 hits (random positions)
     for (let i=0;i<k0;i++) line[i]=true;
-    // shuffle
     for (let i=2;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [line[i],line[j]]=[line[j],line[i]]; }
 
-    let cubes=0;
-    // Safety cap to prevent pathological hangs
+    let cubes = 0;
     const CAP = 2_000_000;
-    while (hits<3 && cubes < CAP){
+    while (hits < 3 && cubes < CAP){
       cubes++;
-      const idx=Math.floor(Math.random()*3);
-      const was=line[idx];
-      const now=(Math.random()<p);
-      line[idx]=now;
-      if (was && !now) hits--;
-      else if (!was && now) hits++;
+      const idx = Math.floor(Math.random()*3);
+      if (line[idx]) {
+        // selected an already-hit line -> cancel (waste a cube)
+        continue;
+      }
+      // selected a missing line -> reroll; confirm only if hit
+      const now = (Math.random() < p);
+      if (now) { line[idx] = true; hits++; }
     }
-    arr[t]=cubes;
+    arr[t] = cubes;
   }
   arr.sort((a,b)=>a-b);
   const avg = arr.reduce((s,x)=>s+x,0)/trials;
@@ -218,27 +162,52 @@ const sim = {
   tier: ['','',''],
   cubes: 0,
   lastPicked: null,
+  pending: null, // { idx, hit, text, tier }
+
   reset(){
     this.hits=[false,false,false];
     this.text=['（尚未套用）','（尚未套用）','（尚未套用）'];
     this.tier=['','',''];
     this.cubes=0;
     this.lastPicked=null;
+    this.pending=null;
   },
   hitCount(){ return this.hits.filter(Boolean).length; },
+
   useOnce(st){
     // Game rule: randomly pick ONE line (1/3) to reroll.
-    const i = Math.floor(Math.random()*3);
-    this.lastPicked = i;
+    const idx = Math.floor(Math.random()*3);
+    this.lastPicked = idx;
     this.cubes++;
-    const tier = sampleTier();
-    this.tier[i] = `本次選中：第 ${i+1} 排｜內部等級：${tier}`;
 
+    const tier = sampleTier();
     const isHit = (Math.random() < st.p);
-    this.hits[i] = isHit;
-    this.text[i] = isHit ? targetText(st) : pickNonTarget(st);
-    return i;
+    const newText = isHit ? targetText(st) : pickNonTarget(st);
+
+    // Do NOT apply immediately. Wait for confirm/cancel.
+    this.pending = {
+      idx,
+      hit: isHit,
+      text: newText,
+      tier: `本次選中：第 ${idx+1} 排｜內部等級：${tier}`
+    };
+    return idx;
   },
+
+  confirm(){
+    if (!this.pending) return;
+    const { idx, hit, text, tier } = this.pending;
+    this.hits[idx] = hit;
+    this.text[idx] = text;
+    this.tier[idx] = tier;
+    this.pending = null;
+  },
+
+  cancel(){
+    // Keep old lines; only discard pending.
+    this.pending = null;
+  },
+
   applyInit(st){
     for (let i=0;i<3;i++){
       const chk = $(`#initHit${i+1}`).checked;
@@ -249,6 +218,7 @@ const sim = {
       this.tier[i] = '';
     }
     this.lastPicked = null;
+    this.pending = null;
   }
 };
 
@@ -273,19 +243,38 @@ function render(doEstimate = false){
     const hit = sim.hits[i];
     el.classList.toggle('good', hit);
     el.classList.toggle('bad', !hit);
-    el.querySelector('.val').textContent = sim.text[i];
-    $(`#tier${i+1}`).textContent = sim.tier[i];
+
+    // Show pending result only on the selected line until confirmed.
+    if (sim.pending && sim.pending.idx === i) {
+      el.querySelector('.val').textContent = `（新）${sim.pending.text}`;
+      $(`#tier${i+1}`).textContent = sim.pending.tier;
+    } else {
+      el.querySelector('.val').textContent = sim.text[i];
+      $(`#tier${i+1}`).textContent = sim.tier[i];
+    }
   }
 
-  // Picked line info
+  // Picked line info + pending state
   const pickedInfo = $('#pickedInfo');
   if (pickedInfo) {
-    pickedInfo.textContent = (sim.lastPicked == null) ? '' : `本次選中：第 ${sim.lastPicked + 1} 排`;
+    if (sim.pending) {
+      const i = sim.pending.idx;
+      pickedInfo.textContent = `本次選中：第 ${i+1} 排（待確認）`;
+    } else if (sim.lastPicked != null) {
+      pickedInfo.textContent = `本次選中：第 ${sim.lastPicked + 1} 排`;
+    } else {
+      pickedInfo.textContent = '';
+    }
   }
+
+  const btnConfirm = $('#btnConfirm');
+  const btnCancel = $('#btnCancel');
+  if (btnConfirm) btnConfirm.disabled = !sim.pending;
+  if (btnCancel) btnCancel.disabled = !sim.pending;
 
   // Estimate section (correct rule: each cube randomly selects ONE line; hits can be lost)
   const out = [];
-  out.push(`單顆：隨機選 1 排（1/3）重洗；命中的排數可能因為被選中而掉回去。`);
+  out.push(`單顆：隨機選 1 排（1/3）重洗；你可以按「取消」不套用，避免把已命中的好詞條洗掉（但仍會消耗一顆）。`);
   out.push(`重洗後命中率（混合）：p = ${fmtPct(st.p)}  （罕見=${fmtPct(st.pU)} / 傳說=${fmtPct(st.pL)}）`);
   out.push(`目前命中：${hits}/3`);
 
@@ -317,6 +306,9 @@ function autoUntilDone(){
   let n = 0;
   while (sim.hitCount() < 3 && n < max){
     sim.useOnce(st);
+    // confirm only if the pending result hits; otherwise cancel
+    if (sim.pending && sim.pending.hit) sim.confirm();
+    else sim.cancel();
     n++;
   }
   render(false);
@@ -355,7 +347,21 @@ function bind(){
   $('#btnReset').addEventListener('click', ()=>{ sim.reset(); render(false); });
   $('#btnReset2')?.addEventListener('click', ()=>{ sim.reset(); render(false); });
 
-  $('#btnUseOnce')?.addEventListener('click', ()=>{ sim.useOnce(getState()); render(false); });
+  $('#btnUseOnce')?.addEventListener('click', ()=>{
+    sim.useOnce(getState());
+    render(false);
+  });
+
+  $('#btnConfirm')?.addEventListener('click', ()=>{
+    sim.confirm();
+    render(false);
+  });
+
+  $('#btnCancel')?.addEventListener('click', ()=>{
+    sim.cancel();
+    render(false);
+  });
+
   $('#btnAuto').addEventListener('click', ()=>autoUntilDone());
 
   $('#btnEstimate')?.addEventListener('click', ()=>render(true));
