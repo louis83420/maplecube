@@ -156,7 +156,9 @@ function simulateCubesToFinish(p, k0, trials){
     for (let i=2;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [line[i],line[j]]=[line[j],line[i]]; }
 
     let cubes=0;
-    while (hits<3){
+    // Safety cap to prevent pathological hangs
+    const CAP = 2_000_000;
+    while (hits<3 && cubes < CAP){
       cubes++;
       const idx=Math.floor(Math.random()*3);
       const was=line[idx];
@@ -164,7 +166,6 @@ function simulateCubesToFinish(p, k0, trials){
       line[idx]=now;
       if (was && !now) hits--;
       else if (!was && now) hits++;
-      if (cubes>50_000_000) break;
     }
     arr[t]=cubes;
   }
@@ -287,10 +288,12 @@ function render(){
   out.push(`目前命中：${hits}/3`);
 
   const exp = expectedCubesToFinish(st.p, hits);
-  const mc = simulateCubesToFinish(st.p, hits, st.trials);
+  // Monte Carlo can be expensive under the 1/3-reroll rule. Keep it bounded to avoid freezing the page.
+  const trials = Math.min(st.trials, 8000);
+  const mc = simulateCubesToFinish(st.p, hits, trials);
   out.push('');
   out.push(`解析期望顆數：${Number.isFinite(exp) ? exp.toFixed(2) : 'Infinity'} 顆（估花費：${Number.isFinite(exp) ? Math.round(exp*st.price).toLocaleString() : 'Infinity'}）`);
-  out.push(`Monte Carlo（${st.trials.toLocaleString()} 次）：平均 ${mc.avg.toFixed(2)} 顆 | P50=${mc.p50} | P90=${mc.p90} | P99=${mc.p99}`);
+  out.push(`Monte Carlo（${trials.toLocaleString()} 次）：平均 ${mc.avg.toFixed(2)} 顆 | P50=${mc.p50} | P90=${mc.p90} | P99=${mc.p99}`);
   $('#out').textContent = out.join('\n');
 
   $('#btnAuto').disabled = (hits===3 || st.p<=0);
