@@ -447,9 +447,17 @@ function setAutoRunning(v){
 
 function autoToTarget(){
   const st0 = getState();
-  if (st0.p <= 0) return;
+  if (!(st0.p > 0)) return;
   const max = Math.max(1, Math.floor(Number($('#autoMax').value || 200000)));
   const targetIdx = (Number($('#targetLine')?.value || 3) - 1);
+  const requireL0 = !!$('#requireLegendary')?.checked;
+
+  // If the user requires legendary lines, outer tier must be legendary in this simplified model.
+  if (requireL0 && st0.currentTier !== 'legendary') {
+    const pendingBox = $('#pendingBox');
+    if (pendingBox) pendingBox.textContent = '你勾了「只接受傳說」，但目前等級不是傳說，所以永遠不會達標。\n請把「目前等級」改成「傳說」再開始。';
+    return;
+  }
 
   if (autoRunning) return;
   setAutoRunning(true);
