@@ -390,7 +390,9 @@ function render(doEstimate = false){
   $('#out').textContent = out.join('\n');
 
   $('#btnAuto').disabled = (hits===3 || st.p<=0);
-  $('#btnUseOnce') && ($('#btnUseOnce').disabled = (hits===3 || st.p<=0));
+  $('#btnUseOnce') && ($('#btnUseOnce').disabled = (hits===3 || st.p<=0 || autoRunning));
+  const btnStop = $('#btnStopAuto');
+  if (btnStop) btnStop.disabled = !autoRunning;
 }
 
 function meetsAutoTarget(st){
@@ -423,34 +425,64 @@ function autoUntilDone(){
   render(false);
 }
 
+let autoRunning = false;
+
+function setAutoRunning(v){
+  autoRunning = v;
+  const btnStop = $('#btnStopAuto');
+  if (btnStop) btnStop.disabled = !v;
+  const btnStart = $('#btnAutoTarget');
+  if (btnStart) btnStart.disabled = v;
+}
+
 function autoToTarget(){
-  const st = getState();
-  if (st.p <= 0) return;
+  const st0 = getState();
+  if (st0.p <= 0) return;
   const max = Math.max(1, Math.floor(Number($('#autoMax').value || 200000)));
   const targetIdx = (Number($('#targetLine')?.value || 3) - 1);
 
+  if (autoRunning) return;
+  setAutoRunning(true);
+
   let n = 0;
-  while (n < max) {
-    sim.useOnce(st);
+  const CHUNK = 200; // keep UI responsive
 
-    // If not the target line: reselect (waste a cube)
-    if (sim.pending && sim.pending.idx !== targetIdx) {
-      sim.cancel();
-      n++;
-      continue;
+  const step = () => {
+    if (!autoRunning) { render(false); return; }
+    const st = getState();
+    for (let i=0;i<CHUNK && n<max;i++){
+      sim.useOnce(st);
+
+      // Not target line -> reselect (waste cube)
+      if (sim.pending && sim.pending.idx !== targetIdx) {
+        sim.cancel();
+        n++;
+        continue;
+      }
+
+      // Target line -> confirm only if passes conditions
+      if (meetsAutoTarget(st)) {
+        sim.confirm();
+        setAutoRunning(false);
+        render(false);
+        return;
+      } else {
+        sim.cancel();
+        n++;
+        continue;
+      }
     }
 
-    // target line: confirm only if passes conditions
-    if (meetsAutoTarget(st)) {
-      sim.confirm();
-      break;
-    } else {
-      sim.cancel();
-      n++;
-      continue;
+    render(false);
+
+    if (n >= max) {
+      setAutoRunning(false);
+      return;
     }
-  }
-  render(false);
+    setTimeout(step, 0);
+  };
+
+  step();
 }
 
 function buildInitSelects(){
@@ -514,6 +546,7 @@ function bind(){
 
   $('#btnAuto').addEventListener('click', ()=>autoUntilDone());
   $('#btnAutoTarget')?.addEventListener('click', ()=>autoToTarget());
+  $('#btnStopAuto')?.addEventListener('click', ()=>{ setAutoRunning(false); });
 
   $('#btnEstimate')?.addEventListener('click', ()=>render(true));
 }
