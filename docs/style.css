@@ -25,6 +25,7 @@ select,input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid va
 .line.good .val{color:var(--good)}
 .line.bad{border-color:rgba(251,113,133,.35)}
 .line.bad .val{color:var(--bad)}
+.line.selected{outline:2px solid rgba(125,211,252,.55); box-shadow: 0 0 0 3px rgba(125,211,252,.10)}
 .small{font-size:12px;color:var(--muted)}
 pre{white-space:pre-wrap;background:#0a1020;border:1px solid var(--border);padding:12px;border-radius:10px;line-height:1.45;margin:0}
 .kv{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center}

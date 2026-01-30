@@ -335,14 +335,24 @@ function render(doEstimate = false){
     const hit = sim.hits[i];
     el.classList.toggle('good', hit);
     el.classList.toggle('bad', !hit);
+    el.classList.toggle('selected', !!(sim.pending && sim.pending.idx === i));
 
-    // Show pending result only on the selected line until confirmed.
-    if (sim.pending && sim.pending.idx === i) {
-      el.querySelector('.val').textContent = `（新）${sim.pending.text}`;
-      $(`#tier${i+1}`).textContent = sim.pending.tier;
+    // Keep the main 3 lines as the CURRENT state. Pending is shown in a separate box.
+    el.querySelector('.val').textContent = sim.text[i];
+    $(`#tier${i+1}`).textContent = sim.tier[i];
+  }
+
+  const pendingBox = $('#pendingBox');
+  if (pendingBox) {
+    if (!sim.pending) {
+      pendingBox.textContent = '尚未使用方塊';
     } else {
-      el.querySelector('.val').textContent = sim.text[i];
-      $(`#tier${i+1}`).textContent = sim.tier[i];
+      pendingBox.textContent = [
+        `本次選中：第 ${sim.pending.idx+1} 排`,
+        `新詞條：${sim.pending.text}`,
+        `內部等級：${tierLabel(sim.pending.internalTier)}`,
+        `（按「確認」才會套用；按「取消」或「重新隨機選排」都不會改原本）`
+      ].join('\n');
     }
   }
 
@@ -489,8 +499,10 @@ function buildInitSelects(){
   const st = getState();
   const opts = [];
   opts.push({ v: '', t: '（自動/不指定）' });
-  const tgt = formatTargetText(st, 'legendary');
-  opts.push({ v: tgt, t: `【目標】${tgt}` });
+  const tgtL = formatTargetText(st, 'legendary');
+  const tgtU = formatTargetText(st, 'unique');
+  opts.push({ v: tgtL, t: `【目標(傳說)】${tgtL}` });
+  if (tgtU !== tgtL) opts.push({ v: tgtU, t: `【目標(罕見)】${tgtU}` });
   // Add a handful of common non-target lines for quick selection.
   const pool = NON_TARGET_POOL[st.presetKey] || [];
   for (const s of pool) opts.push({ v: s, t: s });
