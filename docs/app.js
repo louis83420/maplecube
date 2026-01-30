@@ -345,7 +345,7 @@ function render(doEstimate = false){
   const pendingBox = $('#pendingBox');
   if (pendingBox) {
     if (!sim.pending) {
-      pendingBox.textContent = '尚未使用方塊';
+      pendingBox.textContent = autoRunning ? '自動中…（尚未產生待確認結果）' : '尚未使用方塊';
     } else {
       pendingBox.textContent = [
         `本次選中：第 ${sim.pending.idx+1} 排`,
@@ -443,6 +443,8 @@ function setAutoRunning(v){
   if (btnStop) btnStop.disabled = !v;
   const btnStart = $('#btnAutoTarget');
   if (btnStart) btnStart.disabled = v;
+  const s = $('#autoStatus');
+  if (s) s.textContent = v ? '自動中…' : '';
 }
 
 function autoToTarget(){
@@ -468,28 +470,43 @@ function autoToTarget(){
   const step = () => {
     if (!autoRunning) { render(false); return; }
     const st = getState();
-    for (let i=0;i<CHUNK && n<max;i++){
-      sim.useOnce(st);
 
-      // Not target line -> reselect (waste cube)
-      if (sim.pending && sim.pending.idx !== targetIdx) {
-        sim.cancel();
-        n++;
-        continue;
-      }
+    try {
+      for (let i=0;i<CHUNK && n<max;i++){
+        // ensure no stale pending blocks progression
+        if (sim.pending) sim.cancel();
 
-      // Target line -> confirm only if passes conditions
-      if (meetsAutoTarget(st)) {
-        sim.confirm();
-        setAutoRunning(false);
-        render(false);
-        return;
-      } else {
-        sim.cancel();
-        n++;
-        continue;
+        sim.useOnce(st);
+
+        // Not target line -> reselect (waste cube)
+        if (sim.pending && sim.pending.idx !== targetIdx) {
+          sim.cancel();
+          n++;
+          continue;
+        }
+
+        // Target line -> confirm only if passes conditions
+        if (meetsAutoTarget(st)) {
+          sim.confirm();
+          setAutoRunning(false);
+          render(false);
+          return;
+        } else {
+          sim.cancel();
+          n++;
+          continue;
+        }
       }
+    } catch (e) {
+      setAutoRunning(false);
+      const pendingBox = $('#pendingBox');
+      if (pendingBox) pendingBox.textContent = `自動洗發生錯誤：${e?.message || e}`;
+      console.error(e);
+      return;
     }
+
+    const s = $('#autoStatus');
+    if (s) s.textContent = `自動中…已嘗試 ${n.toLocaleString()} 顆`;
 
     render(false);
 
