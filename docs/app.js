@@ -565,15 +565,15 @@ function buildInitSelects(){
 }
 
 function bind(){
-  $('#preset').addEventListener('change', ()=>{ sim.reset(); buildInitSelects(); render(false); });
-  $('#mainStat').addEventListener('change', ()=>{ buildInitSelects(); render(false); });
+  $('#preset')?.addEventListener('change', ()=>{ sim.reset(); buildInitSelects(); render(false); });
+  $('#mainStat')?.addEventListener('change', ()=>{ buildInitSelects(); render(false); });
   $('#levelBracket')?.addEventListener('change', ()=>{ buildInitSelects(); render(false); });
   $('#currentTier')?.addEventListener('change', ()=>{ buildInitSelects(); render(false); });
   ['price','trials','pU','pL','minValue'].forEach(id=>$('#'+id)?.addEventListener('input', ()=>render(false)));
   ['targetLine','requireLegendary'].forEach(id=>$('#'+id)?.addEventListener('change', ()=>render(false)));
 
-  $('#btnApplyInit').addEventListener('click', ()=>{ sim.applyInit(getState()); render(false); });
-  $('#btnReset').addEventListener('click', ()=>{ sim.reset(); render(false); });
+  $('#btnApplyInit')?.addEventListener('click', ()=>{ sim.applyInit(getState()); render(false); });
+  $('#btnReset')?.addEventListener('click', ()=>{ sim.reset(); render(false); });
   $('#btnReset2')?.addEventListener('click', ()=>{ sim.reset(); render(false); });
 
   $('#btnUseOnce')?.addEventListener('click', ()=>{
@@ -598,13 +598,18 @@ function bind(){
     render(false);
   });
 
-  $('#btnAuto').addEventListener('click', ()=>autoUntilDone());
+  $('#btnAuto')?.addEventListener('click', ()=>autoUntilDone());
   $('#btnAutoTarget')?.addEventListener('click', ()=>autoToTarget());
   $('#btnStopAuto')?.addEventListener('click', ()=>{ setAutoRunning(false); });
 
   $('#btnEstimate')?.addEventListener('click', ()=>render(true));
 }
 
-bind();
-buildInitSelects();
-render(false);
+try {
+  bind();
+  buildInitSelects();
+  render(false);
+} catch (e) {
+  dbg(`init failed: ${e?.message || e}`);
+  console.error(e);
+}
