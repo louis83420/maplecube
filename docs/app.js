@@ -104,6 +104,23 @@ const NON_TARGET_POOL = {
 
 const $ = (sel) => document.querySelector(sel);
 
+function dbg(msg){
+  const card = $('#debugCard');
+  const log = $('#debugLog');
+  if (!card || !log) return;
+  card.style.display = '';
+  log.textContent += (log.textContent ? '\n' : '') + String(msg);
+}
+
+window.addEventListener('error', (e)=>{
+  dbg(`window.error: ${e?.message || e}`);
+});
+window.addEventListener('unhandledrejection', (e)=>{
+  dbg(`unhandledrejection: ${e?.reason?.message || e?.reason || e}`);
+});
+
+dbg('app.js loaded');
+
 function fmtPct(x){ return (x*100).toFixed(4)+'%'; }
 function mixP(pU, pL){ return LINE_TIER.pU*pU + LINE_TIER.pL*pL; }
 
