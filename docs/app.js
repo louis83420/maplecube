@@ -416,7 +416,7 @@ function render(doEstimate = false){
 
   $('#out').textContent = out.join('\n');
 
-  $('#btnAuto').disabled = (hits===3 || st.p<=0);
+  $('#btnAuto') && ($('#btnAuto').disabled = (hits===3 || st.p<=0));
   $('#btnUseOnce') && ($('#btnUseOnce').disabled = (hits===3 || st.p<=0 || autoRunning));
   const btnStop = $('#btnStopAuto');
   if (btnStop) btnStop.disabled = !autoRunning;
