@@ -252,7 +252,9 @@ const sim = {
   }
 };
 
-function render(){
+let estimateDirty = true;
+
+function render(doEstimate = false){
   const st = getState();
 
   $('#presetHint').textContent = st.preset.hint;
@@ -288,12 +290,20 @@ function render(){
   out.push(`目前命中：${hits}/3`);
 
   const exp = expectedCubesToFinish(st.p, hits);
-  // Monte Carlo can be expensive under the 1/3-reroll rule. Keep it bounded to avoid freezing the page.
-  const trials = Math.min(st.trials, 8000);
-  const mc = simulateCubesToFinish(st.p, hits, trials);
   out.push('');
   out.push(`解析期望顆數：${Number.isFinite(exp) ? exp.toFixed(2) : 'Infinity'} 顆（估花費：${Number.isFinite(exp) ? Math.round(exp*st.price).toLocaleString() : 'Infinity'}）`);
-  out.push(`Monte Carlo（${trials.toLocaleString()} 次）：平均 ${mc.avg.toFixed(2)} 顆 | P50=${mc.p50} | P90=${mc.p90} | P99=${mc.p99}`);
+
+  if (doEstimate) {
+    // Monte Carlo can be expensive under the 1/3-reroll rule. Keep it bounded to avoid freezing the page.
+    const trials = Math.min(st.trials, 8000);
+    const mc = simulateCubesToFinish(st.p, hits, trials);
+    out.push(`Monte Carlo（${trials.toLocaleString()} 次）：平均 ${mc.avg.toFixed(2)} 顆 | P50=${mc.p50} | P90=${mc.p90} | P99=${mc.p99}`);
+    estimateDirty = false;
+  } else {
+    out.push('（尚未跑 Monte Carlo）按「計算/更新估算」才會算分位數');
+    estimateDirty = true;
+  }
+
   $('#out').textContent = out.join('\n');
 
   $('#btnAuto').disabled = (hits===3 || st.p<=0);
@@ -309,7 +319,7 @@ function autoUntilDone(){
     sim.useOnce(st);
     n++;
   }
-  render();
+  render(false);
 }
 
 function buildInitSelects(){
@@ -337,18 +347,20 @@ function buildInitSelects(){
 }
 
 function bind(){
-  $('#preset').addEventListener('change', ()=>{ sim.reset(); buildInitSelects(); render(); });
-  $('#mainStat').addEventListener('change', ()=>{ buildInitSelects(); render(); });
-  ['price','trials','pU','pL'].forEach(id=>$('#'+id).addEventListener('input', render));
+  $('#preset').addEventListener('change', ()=>{ sim.reset(); buildInitSelects(); render(false); });
+  $('#mainStat').addEventListener('change', ()=>{ buildInitSelects(); render(false); });
+  ['price','trials','pU','pL'].forEach(id=>$('#'+id).addEventListener('input', ()=>render(false)));
 
-  $('#btnApplyInit').addEventListener('click', ()=>{ sim.applyInit(getState()); render(); });
-  $('#btnReset').addEventListener('click', ()=>{ sim.reset(); render(); });
-  $('#btnReset2')?.addEventListener('click', ()=>{ sim.reset(); render(); });
+  $('#btnApplyInit').addEventListener('click', ()=>{ sim.applyInit(getState()); render(false); });
+  $('#btnReset').addEventListener('click', ()=>{ sim.reset(); render(false); });
+  $('#btnReset2')?.addEventListener('click', ()=>{ sim.reset(); render(false); });
 
-  $('#btnUseOnce')?.addEventListener('click', ()=>{ sim.useOnce(getState()); render(); });
-  $('#btnAuto').addEventListener('click', autoUntilDone);
+  $('#btnUseOnce')?.addEventListener('click', ()=>{ sim.useOnce(getState()); render(false); });
+  $('#btnAuto').addEventListener('click', ()=>autoUntilDone());
+
+  $('#btnEstimate')?.addEventListener('click', ()=>render(true));
 }
 
 bind();
 buildInitSelects();
-render();
+render(false);
