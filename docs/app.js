@@ -337,7 +337,8 @@ function render(doEstimate = false){
   $('#presetLabel').textContent = st.preset.label;
 
   // armor stat selector enable
-  $('#mainStat').disabled = (st.presetKey !== 'armor_mainstat_pct');
+  const ms = $('#mainStat');
+  if (ms) ms.disabled = (st.presetKey !== 'armor_mainstat_pct');
 
   const hits = sim.hitCount();
   $('#counterCubes').textContent = sim.cubes.toLocaleString();
@@ -564,6 +565,56 @@ function buildInitSelects(){
   }
 }
 
+async function selfTest(){
+  try {
+    dbg('selfTest: start');
+    sim.reset();
+    render(false);
+
+    const st = getState();
+    dbg(`selfTest: preset=${st.presetKey} bracket=${st.levelBracket} tier=${st.currentTier}`);
+
+    // basic: use once should create pending
+    sim.useOnce(st);
+    if (!sim.pending) throw new Error('pending not created');
+    dbg(`selfTest: pending line=${sim.pending.idx+1} text=${sim.pending.text}`);
+
+    // cancel
+    sim.cancel();
+    if (sim.pending) throw new Error('cancel did not clear pending');
+    dbg('selfTest: cancel ok');
+
+    // reselect (simulate button behavior)
+    sim.useOnce(st);
+    sim.cancel();
+    sim.useOnce(st);
+    if (!sim.pending) throw new Error('reselect failed');
+    dbg('selfTest: reselect ok');
+
+    // confirm
+    const idx = sim.pending.idx;
+    sim.confirm();
+    if (sim.pending) throw new Error('confirm did not clear pending');
+    dbg(`selfTest: confirm ok (applied line ${idx+1})`);
+
+    // autoToTarget small run (no guarantee to hit, just ensure it doesn't crash)
+    const maxInput = $('#autoMax');
+    const oldMax = maxInput ? maxInput.value : null;
+    if (maxInput) maxInput.value = '200';
+    autoToTarget();
+    // wait a bit to let async loop tick
+    await new Promise(r=>setTimeout(r, 50));
+    setAutoRunning(false);
+    if (maxInput && oldMax != null) maxInput.value = oldMax;
+    dbg('selfTest: autoToTarget tick ok');
+
+    dbg('selfTest: PASS');
+  } catch (e) {
+    dbg(`selfTest: FAIL: ${e?.message || e}`);
+    console.error(e);
+  }
+}
+
 function bind(){
   $('#preset')?.addEventListener('change', ()=>{ sim.reset(); buildInitSelects(); render(false); });
   $('#mainStat')?.addEventListener('change', ()=>{ buildInitSelects(); render(false); });
@@ -603,6 +654,7 @@ function bind(){
   $('#btnStopAuto')?.addEventListener('click', ()=>{ setAutoRunning(false); });
 
   $('#btnEstimate')?.addEventListener('click', ()=>render(true));
+  $('#btnSelfTest')?.addEventListener('click', ()=>{ selfTest(); });
 }
 
 try {
