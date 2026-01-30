@@ -260,6 +260,7 @@ const sim = {
   cubes: 0,
   lastPicked: null,
   pending: null, // { idx, hit, ... }
+  lastSeen: null, // last generated result (for auto mode UI)
   pickCounts: [0,0,0],
 
   reset(){
@@ -269,6 +270,7 @@ const sim = {
     this.cubes=0;
     this.lastPicked=null;
     this.pending=null;
+    this.lastSeen=null;
     this.pickCounts=[0,0,0];
   },
   hitCount(){ return this.hits.filter(Boolean).length; },
@@ -297,6 +299,8 @@ const sim = {
       text: newText,
       tier: `本次選中：第 ${idx+1} 排｜內部等級：${tierLabel(internalTier)}`
     };
+    // store for auto-mode display (even if we cancel immediately)
+    this.lastSeen = { ...this.pending, atCubes: this.cubes };
     return idx;
   },
 
@@ -348,27 +352,31 @@ function render(doEstimate = false){
   $('#pick2') && ($('#pick2').textContent = String(sim.pickCounts?.[1] ?? 0));
   $('#pick3') && ($('#pick3').textContent = String(sim.pickCounts?.[2] ?? 0));
 
+  const selIdx = (sim.pending?.idx ?? sim.lastSeen?.idx ?? null);
   for (let i=0;i<3;i++){
     const el = $(`#line${i+1}`);
     const hit = sim.hits[i];
     el.classList.toggle('good', hit);
     el.classList.toggle('bad', !hit);
-    el.classList.toggle('selected', !!(sim.pending && sim.pending.idx === i));
+    el.classList.toggle('selected', selIdx === i);
 
-    // Keep the main 3 lines as the CURRENT state. Pending is shown in a separate box.
+    // Keep the main 3 lines as the CURRENT state.
     el.querySelector('.val').textContent = sim.text[i];
     $(`#tier${i+1}`).textContent = sim.tier[i];
   }
 
   const pendingBox = $('#pendingBox');
   if (pendingBox) {
-    if (!sim.pending) {
-      pendingBox.textContent = autoRunning ? '自動中…（尚未產生待確認結果）' : '尚未使用方塊';
+    const show = sim.pending || sim.lastSeen;
+    if (!show) {
+      pendingBox.textContent = autoRunning ? '自動中…（尚未產生新結果）' : '尚未使用方塊';
     } else {
+      const isPending = !!sim.pending;
       pendingBox.textContent = [
-        `本次選中：第 ${sim.pending.idx+1} 排`,
-        `新詞條：${sim.pending.text}`,
-        `內部等級：${tierLabel(sim.pending.internalTier)}`,
+        `本次選中：第 ${show.idx+1} 排${isPending ? '（待確認）' : autoRunning ? '（自動中最後一次）' : ''}`,
+        `新詞條：${show.text}`,
+        `內部等級：${tierLabel(show.internalTier)}`,
+        `已用顆數：${(show.atCubes ?? sim.cubes).toLocaleString()}`,
         `（按「確認」才會套用；按「取消」或「重新隨機選排」都不會改原本）`
       ].join('\n');
     }
@@ -495,6 +503,8 @@ function autoToTarget(){
         if (sim.pending) sim.cancel();
 
         sim.useOnce(st);
+        // render occasionally so the top UI shows movement while auto is running
+        if (i % 20 === 0) render(false);
 
         // Not target line -> reselect (waste cube)
         if (sim.pending && sim.pending.idx !== targetIdx) {
