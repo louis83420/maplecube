@@ -192,6 +192,15 @@ function getTargetStatKey(st){
   return 'ATT%';
 }
 
+function statKeyLabel(st){
+  const key = st.targetStatKey;
+  if (key === 'ATT%') return '物理攻擊力%';
+  if (key === 'MAINSTAT%') return `${st.mainStat}%`;
+  if (key === 'CritDmg_Glove') return '爆擊傷害%';
+  if (key === 'CDR') return '減少冷卻時間(秒)';
+  return key;
+}
+
 function getState(){
   const presetKey = $('#preset').value;
   const preset = PRESETS[presetKey];
@@ -204,7 +213,16 @@ function getState(){
   const p = mixP(pU, pL);
   const targetStatKey = getTargetStatKey({ presetKey });
 
-  return { presetKey, preset, price, trials, mainStat, levelBracket, currentTier, targetStatKey, pU, pL, p };
+  const st = { presetKey, preset, price, trials, mainStat, levelBracket, currentTier, targetStatKey, pU, pL, p };
+
+  // Update min threshold hint
+  const hint = $('#minHint');
+  if (hint) {
+    const unit = (targetStatKey === 'CDR') ? '秒' : '%';
+    hint.textContent = `目前目標：${statKeyLabel(st)}，門檻例：${statKeyLabel(st)} ≥ 13${unit === '%' ? '' : ''}`;
+  }
+
+  return st;
 }
 
 function formatTargetText(st, tier){
